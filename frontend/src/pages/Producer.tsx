@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Send, RefreshCw, Plus, Upload, FileText } from 'lucide-react';
+import { Leaf, Send, RefreshCw, Plus, FileText } from 'lucide-react';
 import { getWalletAddress, getOwnedTokens, transferCredit, isTokenRetired, handleChainError, waitForTransactionAndRefresh, listenForTransfers } from '../lib/chain';
 import { apiClient, ProductionRequest } from '../lib/api';
 import { toast } from '../components/Toast';
@@ -56,7 +56,7 @@ const Producer: React.FC = () => {
     
     // Set up transfer event listener
     const setupTransferListener = async () => {
-      await listenForTransfers((from, to, tokenId) => {
+      await listenForTransfers(() => {
         console.log('🔄 Transfer detected, refreshing credits...');
         if (walletAddress) {
           loadCredits(walletAddress);
