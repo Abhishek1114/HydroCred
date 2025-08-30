@@ -97,6 +97,7 @@ export interface CreditEvent {
   timestamp: number;
   fromId: number;
   toId: number;
+  tokenId?: number; // Optional for individual token operations
 }
 
 
@@ -298,7 +299,7 @@ class ApiClient {
     }
   }
     async getLedgerData(): Promise<{ events: CreditEvent[] }> {
-    return this.request('/api/ledger/history');
+    return this.request('/api/ledger');
   }
 }
 

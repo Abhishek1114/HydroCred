@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Send, RefreshCw } from 'lucide-react';
+import { Leaf, Send, RefreshCw, Plus, Upload, FileText } from 'lucide-react';
 import { getWalletAddress, getOwnedTokens, transferCredit, isTokenRetired, handleChainError, waitForTransactionAndRefresh, listenForTransfers } from '../lib/chain';
+import { apiClient, ProductionRequest } from '../lib/api';
 import { toast } from '../components/Toast';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -15,10 +16,40 @@ const Producer: React.FC = () => {
   const [credits, setCredits] = useState<CreditToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isTransferring, setIsTransferring] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'credits' | 'request' | 'sell' | 'history'>('credits');
+  const [productionRequests, setProductionRequests] = useState<ProductionRequest[]>([]);
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   
   // Transfer form state
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null);
   const [transferAddress, setTransferAddress] = useState('');
+  
+  // Production request form state
+  const [requestForm, setRequestForm] = useState({
+    producerName: '',
+    organization: '',
+    location: {
+      country: '',
+      state: '',
+      city: ''
+    },
+    productionData: {
+      hydrogenAmount: '',
+      productionDate: '',
+      energySource: '',
+      energySourceDetails: '',
+      carbonFootprint: '',
+      certificationDocuments: [] as string[]
+    }
+  });
+
+  // Marketplace listing form state
+  const [listingForm, setListingForm] = useState({
+    selectedTokenIds: [] as number[],
+    pricePerCredit: '',
+    sellerName: ''
+  });
+  const [isCreatingListing, setIsCreatingListing] = useState(false);
 
   useEffect(() => {
     loadWalletAndCredits();
@@ -43,6 +74,7 @@ const Producer: React.FC = () => {
       
       if (address) {
         await loadCredits(address);
+        await loadProductionRequests(address);
       }
     } catch (error) {
       console.error('Failed to load wallet and credits:', error);
@@ -50,6 +82,129 @@ const Producer: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadProductionRequests = async (address: string) => {
+    try {
+      const response = await apiClient.getProductionRequests({ producer: address });
+      setProductionRequests(response.requests);
+    } catch (error) {
+      console.error('Failed to load production requests:', error);
+      toast.error('Failed to load production requests');
+    }
+  };
+
+  const handleSubmitProductionRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!walletAddress) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
+    // Validate required fields
+    if (!requestForm.producerName || !requestForm.organization || 
+        !requestForm.location.country || !requestForm.location.state || 
+        !requestForm.location.city || !requestForm.productionData.hydrogenAmount ||
+        !requestForm.productionData.productionDate || !requestForm.productionData.energySource) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+    
+    try {
+      const requestData = {
+        producerWallet: walletAddress,
+        producerName: requestForm.producerName,
+        organization: requestForm.organization,
+        location: requestForm.location,
+        productionData: {
+          hydrogenAmount: parseFloat(requestForm.productionData.hydrogenAmount),
+          productionDate: requestForm.productionData.productionDate,
+          energySource: requestForm.productionData.energySource,
+          energySourceDetails: requestForm.productionData.energySourceDetails,
+          carbonFootprint: parseFloat(requestForm.productionData.carbonFootprint) || 0,
+          certificationDocuments: requestForm.productionData.certificationDocuments
+        }
+      };
+
+      const response = await apiClient.createProductionRequest(requestData);
+      
+      if (response.success) {
+        toast.success('Production request submitted successfully');
+        setRequestForm({
+          producerName: '',
+          organization: '',
+          location: { country: '', state: '', city: '' },
+          productionData: {
+            hydrogenAmount: '',
+            productionDate: '',
+            energySource: '',
+            energySourceDetails: '',
+            carbonFootprint: '',
+            certificationDocuments: []
+          }
+        });
+        await loadProductionRequests(walletAddress);
+      }
+    } catch (error) {
+      console.error('Failed to submit production request:', error);
+      toast.error('Failed to submit production request');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
+  const handleCreateListing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!walletAddress) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
+    if (listingForm.selectedTokenIds.length === 0 || !listingForm.pricePerCredit || !listingForm.sellerName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsCreatingListing(true);
+    
+    try {
+      const totalPrice = listingForm.selectedTokenIds.length * parseFloat(listingForm.pricePerCredit);
+      
+      const response = await apiClient.createMarketplaceListing({
+        sellerWallet: walletAddress,
+        sellerName: listingForm.sellerName,
+        tokenIds: listingForm.selectedTokenIds,
+        pricePerCredit: parseFloat(listingForm.pricePerCredit),
+        totalPrice
+      });
+      
+      if (response.success) {
+        toast.success('Marketplace listing created successfully');
+        setListingForm({
+          selectedTokenIds: [],
+          pricePerCredit: '',
+          sellerName: ''
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create listing:', error);
+      toast.error('Failed to create marketplace listing');
+    } finally {
+      setIsCreatingListing(false);
+    }
+  };
+
+  const toggleTokenSelection = (tokenId: number) => {
+    setListingForm(prev => ({
+      ...prev,
+      selectedTokenIds: prev.selectedTokenIds.includes(tokenId)
+        ? prev.selectedTokenIds.filter(id => id !== tokenId)
+        : [...prev.selectedTokenIds, tokenId]
+    }));
   };
 
   const loadCredits = async (address: string) => {
@@ -168,7 +323,7 @@ const Producer: React.FC = () => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -198,9 +353,67 @@ const Producer: React.FC = () => {
               <h3 className="text-2xl font-bold text-gray-400">{retiredCredits.length}</h3>
               <p className="text-gray-400">Retired Credits</p>
             </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="card text-center"
+            >
+              <h3 className="text-2xl font-bold text-blue-400">{productionRequests.length}</h3>
+              <p className="text-gray-400">Requests</p>
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Tabs */}
+          <div className="mb-8">
+            <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('credits')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  activeTab === 'credits' 
+                    ? 'bg-brand text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                My Credits
+              </button>
+              <button
+                onClick={() => setActiveTab('request')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  activeTab === 'request' 
+                    ? 'bg-brand text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Request Certification
+              </button>
+              <button
+                onClick={() => setActiveTab('sell')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  activeTab === 'sell' 
+                    ? 'bg-brand text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Sell Credits
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  activeTab === 'history' 
+                    ? 'bg-brand text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Request History
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'credits' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Transfer Form */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -318,7 +531,365 @@ const Producer: React.FC = () => {
                 )}
               </div>
             </motion.div>
-          </div>
+            </div>
+          )}
+
+          {/* Production Request Tab */}
+          {activeTab === 'request' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="card"
+            >
+              <h2 className="text-xl font-semibold mb-6 flex items-center">
+                <Plus className="h-5 w-5 mr-2 text-brand" />
+                Request Production Certification
+              </h2>
+              
+              <form onSubmit={handleSubmitProductionRequest} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Producer Name *</label>
+                    <input
+                      type="text"
+                      value={requestForm.producerName}
+                      onChange={(e) => setRequestForm(prev => ({ ...prev, producerName: e.target.value }))}
+                      className="input w-full"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Organization *</label>
+                    <input
+                      type="text"
+                      value={requestForm.organization}
+                      onChange={(e) => setRequestForm(prev => ({ ...prev, organization: e.target.value }))}
+                      className="input w-full"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Country *</label>
+                    <input
+                      type="text"
+                      value={requestForm.location.country}
+                      onChange={(e) => setRequestForm(prev => ({ 
+                        ...prev, 
+                        location: { ...prev.location, country: e.target.value }
+                      }))}
+                      className="input w-full"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">State *</label>
+                    <input
+                      type="text"
+                      value={requestForm.location.state}
+                      onChange={(e) => setRequestForm(prev => ({ 
+                        ...prev, 
+                        location: { ...prev.location, state: e.target.value }
+                      }))}
+                      className="input w-full"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">City *</label>
+                    <input
+                      type="text"
+                      value={requestForm.location.city}
+                      onChange={(e) => setRequestForm(prev => ({ 
+                        ...prev, 
+                        location: { ...prev.location, city: e.target.value }
+                      }))}
+                      className="input w-full"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Hydrogen Amount (kg) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={requestForm.productionData.hydrogenAmount}
+                      onChange={(e) => setRequestForm(prev => ({ 
+                        ...prev, 
+                        productionData: { ...prev.productionData, hydrogenAmount: e.target.value }
+                      }))}
+                      className="input w-full"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Production Date *</label>
+                    <input
+                      type="date"
+                      value={requestForm.productionData.productionDate}
+                      onChange={(e) => setRequestForm(prev => ({ 
+                        ...prev, 
+                        productionData: { ...prev.productionData, productionDate: e.target.value }
+                      }))}
+                      className="input w-full"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Energy Source *</label>
+                    <select
+                      value={requestForm.productionData.energySource}
+                      onChange={(e) => setRequestForm(prev => ({ 
+                        ...prev, 
+                        productionData: { ...prev.productionData, energySource: e.target.value }
+                      }))}
+                      className="input w-full"
+                      required
+                    >
+                      <option value="">Select energy source...</option>
+                      <option value="solar">Solar</option>
+                      <option value="wind">Wind</option>
+                      <option value="hydro">Hydroelectric</option>
+                      <option value="geothermal">Geothermal</option>
+                      <option value="biomass">Biomass</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Carbon Footprint (kg CO2)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={requestForm.productionData.carbonFootprint}
+                      onChange={(e) => setRequestForm(prev => ({ 
+                        ...prev, 
+                        productionData: { ...prev.productionData, carbonFootprint: e.target.value }
+                      }))}
+                      className="input w-full"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Energy Source Details</label>
+                  <textarea
+                    value={requestForm.productionData.energySourceDetails}
+                    onChange={(e) => setRequestForm(prev => ({ 
+                      ...prev, 
+                      productionData: { ...prev.productionData, energySourceDetails: e.target.value }
+                    }))}
+                    className="input w-full"
+                    rows={3}
+                    placeholder="Provide details about your renewable energy source..."
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingRequest}
+                  className="btn-primary w-full flex items-center justify-center space-x-2"
+                >
+                  {isSubmittingRequest ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      <span>Submitting Request...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4" />
+                      <span>Submit Certification Request</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {/* Sell Credits Tab */}
+          {activeTab === 'sell' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="card"
+            >
+              <h2 className="text-xl font-semibold mb-6 flex items-center">
+                <Send className="h-5 w-5 mr-2 text-brand" />
+                Create Marketplace Listing
+              </h2>
+              
+              {activeCredits.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No active credits available for sale
+                </p>
+              ) : (
+                <form onSubmit={handleCreateListing} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Seller Name *</label>
+                      <input
+                        type="text"
+                        value={listingForm.sellerName}
+                        onChange={(e) => setListingForm(prev => ({ ...prev, sellerName: e.target.value }))}
+                        className="input w-full"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Price per Credit (USD) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={listingForm.pricePerCredit}
+                        onChange={(e) => setListingForm(prev => ({ ...prev, pricePerCredit: e.target.value }))}
+                        className="input w-full"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-4">
+                      Select Credits to Sell * ({listingForm.selectedTokenIds.length} selected)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto">
+                      {activeCredits.map((credit) => (
+                        <div
+                          key={credit.tokenId}
+                          onClick={() => toggleTokenSelection(credit.tokenId)}
+                          className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                            listingForm.selectedTokenIds.includes(credit.tokenId)
+                              ? 'border-brand bg-brand/10'
+                              : 'border-gray-700 hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Credit #{credit.tokenId}</span>
+                            <div className={`w-4 h-4 rounded border-2 ${
+                              listingForm.selectedTokenIds.includes(credit.tokenId)
+                                ? 'bg-brand border-brand'
+                                : 'border-gray-500'
+                            }`} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {listingForm.selectedTokenIds.length > 0 && listingForm.pricePerCredit && (
+                    <div className="bg-brand/10 border border-brand rounded-lg p-4">
+                      <h4 className="font-medium text-brand mb-2">Listing Summary</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-400">Credits:</span>
+                          <span className="ml-2 font-medium">{listingForm.selectedTokenIds.length}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Price per Credit:</span>
+                          <span className="ml-2 font-medium">${listingForm.pricePerCredit}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Total Price:</span>
+                          <span className="ml-2 font-medium">
+                            ${(listingForm.selectedTokenIds.length * parseFloat(listingForm.pricePerCredit || '0')).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isCreatingListing || listingForm.selectedTokenIds.length === 0}
+                    className="btn-primary w-full flex items-center justify-center space-x-2"
+                  >
+                    {isCreatingListing ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span>Creating Listing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        <span>Create Marketplace Listing</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </motion.div>
+          )}
+
+          {/* Request History Tab */}
+          {activeTab === 'history' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="card"
+            >
+              <h2 className="text-xl font-semibold mb-6">Production Request History</h2>
+              
+              <div className="space-y-4">
+                {productionRequests.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">
+                    No production requests found
+                  </p>
+                ) : (
+                  productionRequests.map((request) => (
+                    <div key={request.id} className="border border-gray-700 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-semibold">{request.productionData.hydrogenAmount} kg H2</h3>
+                          <p className="text-sm text-gray-400">
+                            {request.productionData.energySource} • {request.productionData.productionDate}
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          request.status === 'approved' ? 'bg-green-900 text-green-400' :
+                          request.status === 'rejected' ? 'bg-red-900 text-red-400' :
+                          'bg-yellow-900 text-yellow-400'
+                        }`}>
+                          {request.status}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm text-gray-500 grid grid-cols-2 gap-4">
+                        <p>Organization: {request.organization}</p>
+                        <p>Location: {request.location.city}, {request.location.state}</p>
+                        {request.creditsIssued && (
+                          <p>Credits Issued: {request.creditsIssued}</p>
+                        )}
+                        {request.certifiedBy && (
+                          <p>Certified By: {request.certifiedBy.slice(0, 6)}...{request.certifiedBy.slice(-4)}</p>
+                        )}
+                      </div>
+                      
+                      {request.rejectionReason && (
+                        <div className="mt-2 p-2 bg-red-900/20 border border-red-700 rounded text-sm text-red-400">
+                          Rejection Reason: {request.rejectionReason}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </div>

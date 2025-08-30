@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Trash2, Download, RefreshCw } from 'lucide-react';
+import { Users, Trash2, Download, RefreshCw, ShoppingCart, Search } from 'lucide-react';
 import { getWalletAddress, getOwnedTokens, retireCredit, isTokenRetired, handleChainError, waitForTransactionAndRefresh, listenForTransfers } from '../lib/chain';
+import { apiClient, CreditListing } from '../lib/api';
 import { toast } from '../components/Toast';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -15,6 +16,10 @@ const Buyer: React.FC = () => {
   const [credits, setCredits] = useState<CreditToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRetiring, setIsRetiring] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'marketplace' | 'credits'>('marketplace');
+  const [marketplaceListings, setMarketplaceListings] = useState<CreditListing[]>([]);
+  const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Retirement confirmation state
   const [confirmRetirement, setConfirmRetirement] = useState<number | null>(null);
@@ -42,12 +47,47 @@ const Buyer: React.FC = () => {
       
       if (address) {
         await loadCredits(address);
+        await loadMarketplaceListings();
       }
     } catch (error) {
       console.error('Failed to load wallet and credits:', error);
       toast.error('Failed to connect to blockchain');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMarketplaceListings = async () => {
+    try {
+      const response = await apiClient.getMarketplaceListings();
+      setMarketplaceListings(response.listings.filter(listing => listing.status === 'active'));
+    } catch (error) {
+      console.error('Failed to load marketplace listings:', error);
+      toast.error('Failed to load marketplace');
+    }
+  };
+
+  const handlePurchaseCredits = async (listingId: string) => {
+    if (!walletAddress) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
+    setIsPurchasing(listingId);
+    
+    try {
+      const response = await apiClient.purchaseCredits(listingId, walletAddress);
+      
+      if (response.success) {
+        toast.success('Credits purchased successfully');
+        await loadMarketplaceListings();
+        await loadCredits(walletAddress);
+      }
+    } catch (error) {
+      console.error('Failed to purchase credits:', error);
+      toast.error('Failed to purchase credits');
+    } finally {
+      setIsPurchasing(null);
     }
   };
 
@@ -172,7 +212,10 @@ const Buyer: React.FC = () => {
                 <h1 className="text-3xl font-bold">Buyer Dashboard</h1>
               </div>
               <button
-                onClick={handleRefresh}
+                onClick={() => {
+                  handleRefresh();
+                  loadMarketplaceListings();
+                }}
                 className="btn-secondary flex items-center space-x-2"
               >
                 <RefreshCw className="h-4 w-4" />
@@ -183,7 +226,178 @@ const Buyer: React.FC = () => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="card text-center"
+            >
+              <h3 className="text-2xl font-bold text-blue-400">{marketplaceListings.length}</h3>
+              <p className="text-gray-400">Available Listings</p>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="card text-center"
+            >
+              <h3 className="text-2xl font-bold text-brand">{credits.length}</h3>
+              <p className="text-gray-400">Owned Credits</p>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="card text-center"
+            >
+              <h3 className="text-2xl font-bold text-green-400">{activeCredits.length}</h3>
+              <p className="text-gray-400">Active Credits</p>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="card text-center"
+            >
+              <h3 className="text-2xl font-bold text-gray-400">{retiredCredits.length}</h3>
+              <p className="text-gray-400">Retired Credits</p>
+            </motion.div>
+          </div>
+
+          {/* Tabs */}
+          <div className="mb-8">
+            <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('marketplace')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  activeTab === 'marketplace' 
+                    ? 'bg-brand text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Marketplace
+              </button>
+              <button
+                onClick={() => setActiveTab('credits')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  activeTab === 'credits' 
+                    ? 'bg-brand text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                My Credits
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'marketplace' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="card"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold flex items-center">
+                  <ShoppingCart className="h-5 w-5 mr-2 text-brand" />
+                  Credit Marketplace
+                </h2>
+                
+                <div className="flex items-center space-x-2">
+                  <Search className="h-4 w-4 text-brand" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by seller..."
+                    className="input w-64"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {marketplaceListings.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">
+                    No credits available for purchase
+                  </p>
+                ) : (
+                  marketplaceListings
+                    .filter(listing => 
+                      !searchTerm || 
+                      listing.sellerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      listing.sellerWallet.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((listing) => (
+                      <div key={listing.id} className="border border-gray-700 rounded-lg p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="font-semibold text-lg">{listing.sellerName}</h3>
+                            <p className="text-gray-400">
+                              {listing.sellerWallet.slice(0, 6)}...{listing.sellerWallet.slice(-4)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-brand">${listing.pricePerCredit}</p>
+                            <p className="text-sm text-gray-400">per credit</p>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                          <div>
+                            <span className="text-gray-400">Credits Available:</span>
+                            <span className="ml-2 font-medium">{listing.tokenIds.length}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Total Price:</span>
+                            <span className="ml-2 font-medium">${listing.totalPrice}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Listed:</span>
+                            <span className="ml-2 font-medium">
+                              {new Date(listing.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Expires:</span>
+                            <span className="ml-2 font-medium">
+                              {new Date(listing.expiresAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={() => handlePurchaseCredits(listing.id)}
+                          disabled={isPurchasing === listing.id || listing.sellerWallet === walletAddress}
+                          className="btn-primary w-full flex items-center justify-center space-x-2"
+                        >
+                          {isPurchasing === listing.id ? (
+                            <>
+                              <LoadingSpinner size="sm" />
+                              <span>Purchasing...</span>
+                            </>
+                          ) : listing.sellerWallet === walletAddress ? (
+                            <span>Your Own Listing</span>
+                          ) : (
+                            <>
+                              <ShoppingCart className="h-4 w-4" />
+                              <span>Purchase Credits</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'credits' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

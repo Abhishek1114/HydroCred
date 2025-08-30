@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, ExternalLink, RefreshCw, Filter, Search } from 'lucide-react';
-import { getLedgerData, CreditEvent } from '../lib/api';
+import { apiClient, CreditEvent } from '../lib/api';
 import { getExplorerUrl } from '../lib/chain';
 import { toast } from '../components/Toast';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -18,7 +18,7 @@ const Regulator: React.FC = () => {
 
   const loadLedgerData = async () => {
     try {
-      const data = await getLedgerData();
+      const data = await apiClient.getLedgerData();
       setEvents(data.events);
     } catch (error) {
       console.error('Failed to load ledger data:', error);
@@ -74,9 +74,9 @@ const Regulator: React.FC = () => {
       case 'issued':
         return `${event.amount} credits issued to ${event.to?.slice(0, 6)}...${event.to?.slice(-4)}`;
       case 'transferred':
-        return `Credit #${event.tokenId} transferred from ${event.from?.slice(0, 6)}...${event.from?.slice(-4)} to ${event.to?.slice(0, 6)}...${event.to?.slice(-4)}`;
+        return `Credit${event.tokenId ? ` #${event.tokenId}` : 's'} transferred from ${event.from?.slice(0, 6)}...${event.from?.slice(-4)} to ${event.to?.slice(0, 6)}...${event.to?.slice(-4)}`;
       case 'retired':
-        return `Credit #${event.tokenId} retired by ${event.from?.slice(0, 6)}...${event.from?.slice(-4)}`;
+        return `Credit${event.tokenId ? ` #${event.tokenId}` : 's'} retired by ${event.from?.slice(0, 6)}...${event.from?.slice(-4)}`;
       default:
         return 'Unknown event';
     }

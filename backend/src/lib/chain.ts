@@ -49,7 +49,7 @@ export interface CreditEvent {
   transactionHash: string;
 }
 
-export async function getCreditEvents(fromBlock: number = 0): Promise<CreditEvent[]> {
+export async function getCreditEvents(fromBlock?: number): Promise<CreditEvent[]> {
   const contractInstance = await getContract();
   if (!contractInstance) {
     throw new Error('Contract not initialized');
@@ -58,12 +58,17 @@ export async function getCreditEvents(fromBlock: number = 0): Promise<CreditEven
   const events: CreditEvent[] = [];
 
   try {
-    console.log('🔍 Fetching credit events from block:', fromBlock);
+    // Use a more recent starting block to avoid "exceed maximum block range" error
+    const providerInstance = await getProvider();
+    const currentBlock = await providerInstance!.getBlockNumber();
+    const startBlock = fromBlock !== undefined ? fromBlock : Math.max(0, currentBlock - 1000); // Last 1k blocks only
+    
+    console.log('🔍 Fetching credit events from block:', startBlock, 'to latest (current:', currentBlock, ')');
     
     // Get CreditsIssued events
     console.log('📋 Fetching CreditsIssued events...');
     const issuedFilter = contractInstance.filters.CreditsIssued();
-    const issuedEvents = await contractInstance.queryFilter(issuedFilter, fromBlock);
+    const issuedEvents = await contractInstance.queryFilter(issuedFilter, startBlock);
     console.log('✅ Found', issuedEvents.length, 'CreditsIssued events');
     
     for (const event of issuedEvents) {
@@ -106,7 +111,7 @@ export async function getCreditEvents(fromBlock: number = 0): Promise<CreditEven
     // Get CreditRetired events
     console.log('📋 Fetching CreditRetired events...');
     const retiredFilter = contractInstance.filters.CreditRetired();
-    const retiredEvents = await contractInstance.queryFilter(retiredFilter, fromBlock);
+    const retiredEvents = await contractInstance.queryFilter(retiredFilter, startBlock);
     console.log('✅ Found', retiredEvents.length, 'CreditRetired events');
     
     for (const event of retiredEvents) {
@@ -133,8 +138,17 @@ export async function getCreditEvents(fromBlock: number = 0): Promise<CreditEven
 
     console.log('🎉 Total events found:', events.length);
     return events;
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error fetching credit events:', error);
+    
+    // If the contract doesn't exist or has no events, return empty array
+    if (error.message?.includes('exceed maximum block range') || 
+        error.message?.includes('contract not deployed') ||
+        error.code === 'UNKNOWN_ERROR') {
+      console.log('⚠️ Returning empty events due to blockchain connectivity issue');
+      return [];
+    }
+    
     throw error;
   }
 }
