@@ -1,157 +1,99 @@
-# HydroCred Deployment Guide
+# 🚀 HydroCred Deployment Guide
 
-## 🚀 Complete Deployment Instructions
+## 📋 Pre-deployment Checklist
 
-This guide covers deploying the entire HydroCred system from local development to production.
+- [ ] Node.js 18+ installed
+- [ ] MetaMask extension installed
+- [ ] Git repository cloned
+- [ ] Environment variables configured
+- [ ] Test ETH available for deployment
 
-## 📋 Prerequisites
+## 🔧 Local Development Setup
 
-- **Node.js 18+** and npm/yarn
-- **Git** for version control
-- **MetaMask** wallet with testnet ETH
-- **Hardhat** for smart contract deployment
-- **MongoDB** (optional, for production)
+### 1. Quick Setup (Recommended)
 
-## 🏗️ Local Development Setup
-
-### 1. Clone Repository
 ```bash
+# Clone and setup everything
 git clone <repository-url>
-cd HydroCred
+cd hydrocred
+
+# Initialize demo environment
+node scripts/init-demo.js
+
+# Install all dependencies and compile contracts
+npm run setup
+
+# Start all services
+npm run start
 ```
 
-### 2. Install Dependencies
+### 2. Manual Setup
+
 ```bash
-# Root dependencies
-npm install
+# Install dependencies
+npm run install:all
 
-# Backend dependencies
-cd backend && npm install
+# Compile smart contracts
+cd blockchain
+npx hardhat compile
+node scripts/copy-abi.js
+cd ..
 
-# Frontend dependencies
-cd ../frontend && npm install
-
-# Blockchain dependencies
-cd ../blockchain && npm install
-```
-
-### 3. Environment Configuration
-
-**Backend (.env)**
-```env
-PORT=5055
-NODE_ENV=development
-RPC_URL=https://ethereum-sepolia.publicnode.com
-CONTRACT_ADDRESS=0xaA7b945a4Cd4381DcF5D4Bc6e0E5cc76e6A3Fc39
-AES_KEY=hydrocred_encryption_key_32_chars_min_2024
-MONGODB_URI=mongodb://localhost:27017/hydrocred
-```
-
-**Frontend (.env)**
-```env
-VITE_BACKEND_URL=http://localhost:5055
-VITE_CONTRACT_ADDRESS=0xaA7b945a4Cd4381DcF5D4Bc6e0E5cc76e6A3Fc39
-VITE_RPC_URL=https://ethereum-sepolia.publicnode.com
-```
-
-**Blockchain (.env)**
-```env
-RPC_URL=https://ethereum-sepolia.publicnode.com
-PRIVATE_KEY=your_wallet_private_key
-ETHERSCAN_API_KEY=your_etherscan_api_key
-```
-
-### 4. Start Development Servers
-
-**Terminal 1: Backend**
-```bash
+# Start backend (Terminal 1)
 cd backend
 npm run dev
-# Server starts on http://localhost:5055
-```
 
-**Terminal 2: Frontend**
-```bash
+# Start frontend (Terminal 2) 
 cd frontend
 npm run dev
-# App starts on http://localhost:5173
 ```
 
-**Terminal 3: Blockchain (Optional)**
+### 3. Access Application
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:5055
+- **Health Check**: http://localhost:5055/api/health
+
+## 🌐 Testnet Deployment
+
+### 1. Get Test ETH
+
+Visit [Sepolia Faucet](https://sepoliafaucet.com/) and get test ETH for:
+- Admin wallet: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`
+
+### 2. Deploy Smart Contract
+
 ```bash
 cd blockchain
-npx hardhat node
-# Local blockchain on http://localhost:8545
-```
-
-## 🔗 Testnet Deployment
-
-### 1. Deploy Smart Contracts
-
-```bash
-cd blockchain
-
-# Compile contracts
-npx hardhat compile
-
-# Deploy to Sepolia testnet
 npx hardhat run scripts/deploy.ts --network sepolia
-
-# Verify contract on Etherscan
-npx hardhat verify --network sepolia <deployed-contract-address>
 ```
 
-### 2. Update Environment Variables
+### 3. Update Environment Variables
 
-After deployment, update the contract address in both backend and frontend `.env` files:
+Update `.env` and `frontend/.env` with the new contract address from deployment.
 
-```env
-CONTRACT_ADDRESS=0x... # Your deployed contract address
-```
+## 🏭 Production Deployment
 
-### 3. Initialize System
+### Backend Deployment (Node.js)
 
+**Using PM2:**
 ```bash
-# Initialize default admin
-curl http://localhost:5055/api/init
+# Install PM2
+npm install -g pm2
 
-# Check system health
-curl http://localhost:5055/api/health
-```
-
-## 🌐 Production Deployment
-
-### 1. Smart Contract Deployment
-
-```bash
-cd blockchain
-
-# Deploy to mainnet
-npx hardhat run scripts/deploy.ts --network mainnet
-
-# Verify on Etherscan
-npx hardhat verify --network mainnet <contract-address>
-```
-
-### 2. Backend Deployment
-
-**Option A: Traditional Server**
-```bash
+# Build and start backend
 cd backend
-
-# Build for production
 npm run build
-
-# Start production server
-npm start
-
-# Or use PM2 for process management
 pm2 start dist/server.js --name hydrocred-backend
+
+# Monitor
+pm2 logs hydrocred-backend
+pm2 monit
 ```
 
-**Option B: Docker**
+**Using Docker:**
 ```dockerfile
-# Dockerfile
+# backend/Dockerfile
 FROM node:18-alpine
 WORKDIR /app
 COPY package*.json ./
@@ -161,261 +103,229 @@ EXPOSE 5055
 CMD ["node", "dist/server.js"]
 ```
 
-```bash
-# Build and run
-docker build -t hydrocred-backend .
-docker run -p 5055:5055 hydrocred-backend
-```
+### Frontend Deployment (Static)
 
-**Option C: Cloud Platforms**
-
-**Heroku**
-```bash
-# Create app
-heroku create hydrocred-backend
-
-# Set environment variables
-heroku config:set NODE_ENV=production
-heroku config:set RPC_URL=https://mainnet.infura.io/v3/YOUR_KEY
-heroku config:set CONTRACT_ADDRESS=0x...
-
-# Deploy
-git push heroku main
-```
-
-**Vercel**
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel --prod
-```
-
-### 3. Frontend Deployment
-
-**Option A: Static Hosting**
+**Build for Production:**
 ```bash
 cd frontend
-
-# Build for production
 npm run build
-
-# Deploy to Netlify/Vercel/GitHub Pages
-# Upload dist/ folder contents
 ```
 
-**Option B: Docker**
-```dockerfile
-# Dockerfile
-FROM nginx:alpine
-COPY dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-EXPOSE 80
-```
-
-**Option C: Cloud Platforms**
-
-**Netlify**
+**Deploy to Netlify/Vercel:**
 ```bash
-# Build and deploy
-npm run build
+# Install Netlify CLI
+npm install -g netlify-cli
+
+# Deploy
 netlify deploy --prod --dir=dist
 ```
 
-**Vercel**
+**Deploy to AWS S3:**
 ```bash
-# Deploy
-vercel --prod
+# Install AWS CLI and configure
+aws s3 sync dist/ s3://your-bucket-name --delete
+aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
 ```
 
-## 🔐 Security Configuration
+### Smart Contract Deployment
 
-### 1. Environment Security
+**Mainnet Deployment:**
 ```bash
-# Generate secure keys
-openssl rand -hex 32  # AES key
-openssl rand -hex 64  # JWT secret
-
-# Set secure environment variables
-export NODE_ENV=production
-export AES_KEY=generated_aes_key
-export JWT_SECRET=generated_jwt_secret
-```
-
-### 2. CORS Configuration
-```typescript
-// backend/src/server.ts
-app.use(cors({
-  origin: [
-    'https://yourdomain.com',
-    'https://www.yourdomain.com'
-  ],
-  credentials: true
-}));
-```
-
-### 3. Rate Limiting
-```bash
-# Install rate limiting
-npm install express-rate-limit
-
-# Configure in server.ts
-import rateLimit from 'express-rate-limit';
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-
-app.use(limiter);
-```
-
-## 📊 Database Setup
-
-### 1. MongoDB (Production)
-```bash
-# Install MongoDB
-sudo apt-get install mongodb
-
-# Create database
-mongo
-use hydrocred
-db.createUser({
-  user: "hydrocred_user",
-  pwd: "secure_password",
-  roles: ["readWrite"]
-})
-```
-
-### 2. Update Backend Configuration
-```typescript
-// backend/src/config/env.ts
-export const config = {
-  // ... other config
-  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/hydrocred',
-  mongodbOptions: {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    auth: {
-      username: process.env.MONGODB_USER,
-      password: process.env.MONGODB_PASS
-    }
-  }
-};
-```
-
-## 🔍 Monitoring & Logging
-
-### 1. Application Monitoring
-```bash
-# Install monitoring tools
-npm install winston morgan
-
-# Configure logging
-import winston from 'winston';
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' })
-  ]
-});
-```
-
-### 2. Health Checks
-```typescript
-// Add health check endpoints
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage()
-  });
-});
-```
-
-## 🧪 Testing Deployment
-
-### 1. Contract Testing
-```bash
+# Update hardhat.config.ts with mainnet configuration
 cd blockchain
-
-# Run all tests
-npx hardhat test
-
-# Test specific network
-npx hardhat test --network sepolia
+npx hardhat run scripts/deploy.ts --network mainnet
 ```
 
-### 2. API Testing
-```bash
-# Test backend endpoints
-curl http://localhost:5055/api/health
-curl http://localhost:5055/api/init
+## ⚙️ Environment Configuration
 
-# Test user registration
-curl -X POST http://localhost:5055/api/users/register \
-  -H "Content-Type: application/json" \
-  -d '{"walletAddress":"0x...","role":"PRODUCER","name":"Test User","organization":"Test Org","location":{"country":"US","state":"CA","city":"SF"}}'
+### Production Environment Variables
+
+**Backend (.env):**
+```env
+PORT=5055
+NODE_ENV=production
+RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+CONTRACT_ADDRESS=0xYOUR_DEPLOYED_CONTRACT_ADDRESS
+PRIVATE_KEY=0xYOUR_ADMIN_PRIVATE_KEY
+AES_KEY=your_secure_32_character_encryption_key
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/hydrocred
 ```
 
-### 3. Frontend Testing
+**Frontend (.env.production):**
+```env
+VITE_BACKEND_URL=https://api.hydrocred.com
+VITE_CONTRACT_ADDRESS=0xYOUR_DEPLOYED_CONTRACT_ADDRESS
+VITE_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+VITE_CHAIN_ID=1
+```
+
+## 🔒 Security Considerations
+
+### Production Security
+
+1. **Private Key Management**
+   - Use hardware wallets or secure key management systems
+   - Never commit private keys to version control
+   - Use environment variables or secure vaults
+
+2. **API Security**
+   - Enable rate limiting
+   - Use HTTPS in production
+   - Implement API key authentication
+   - Add request validation and sanitization
+
+3. **Smart Contract Security**
+   - Audit contracts before mainnet deployment
+   - Use multi-signature wallets for admin functions
+   - Implement emergency pause functionality
+   - Monitor for unusual activity
+
+### Infrastructure Security
+
 ```bash
-cd frontend
+# Enable firewall
+ufw enable
+ufw allow 22    # SSH
+ufw allow 80    # HTTP
+ufw allow 443   # HTTPS
 
-# Run tests
-npm test
+# Setup SSL certificates
+certbot --nginx -d api.hydrocred.com
+```
 
-# Build test
+## 📊 Monitoring & Maintenance
+
+### Health Monitoring
+
+**Backend Health Check:**
+```bash
+curl https://api.hydrocred.com/api/health
+```
+
+**Expected Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "service": "HydroCred Backend API"
+}
+```
+
+### Log Management
+
+**PM2 Logs:**
+```bash
+pm2 logs hydrocred-backend --lines 100
+pm2 flush  # Clear logs
+```
+
+**Application Logs:**
+```bash
+# Backend logs
+tail -f backend/logs/app.log
+
+# Error logs  
+tail -f backend/logs/error.log
+```
+
+### Database Backup
+
+**File-based Backup:**
+```bash
+# Backup user data
+tar -czf backup-$(date +%Y%m%d).tar.gz backend/data/
+```
+
+**MongoDB Backup (if using MongoDB):**
+```bash
+mongodump --uri="mongodb+srv://user:pass@cluster.mongodb.net/hydrocred"
+```
+
+## 🔄 Updates & Maintenance
+
+### Application Updates
+
+```bash
+# Pull latest changes
+git pull origin main
+
+# Update dependencies
+npm run install:all
+
+# Rebuild and restart
 npm run build
-npm run preview
+pm2 restart hydrocred-backend
 ```
 
-## 🚨 Troubleshooting
+### Smart Contract Updates
 
-### Common Deployment Issues
-
-**Contract Deployment Fails**
 ```bash
-# Check network configuration
-npx hardhat console --network sepolia
+# Deploy new contract version
+cd blockchain
+npx hardhat run scripts/deploy.ts --network mainnet
 
-# Verify RPC endpoint
-curl -X POST https://ethereum-sepolia.publicnode.com \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+# Update environment variables with new address
+# Notify users of contract migration
 ```
 
-**Backend Won't Start**
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**1. "Cannot connect to blockchain"**
+- Check RPC URL and network configuration
+- Verify contract address is correct
+- Ensure sufficient ETH for gas fees
+
+**2. "User registration failed"**
+- Check backend logs for detailed error
+- Verify wallet connection
+- Ensure all required fields are provided
+
+**3. "Transaction failed"**
+- Check gas price and limit
+- Verify wallet has sufficient ETH
+- Confirm contract permissions
+
+### Debug Commands
+
 ```bash
-# Check port availability
-netstat -tulpn | grep :5055
+# Check contract deployment
+npx hardhat verify --network sepolia CONTRACT_ADDRESS
 
-# Check environment variables
-echo $NODE_ENV
-echo $PORT
-echo $RPC_URL
-```
+# Test RPC connection
+curl -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+  https://ethereum-sepolia.publicnode.com
 
-**Frontend Build Fails**
-```bash
-# Clear cache
-rm -rf node_modules package-lock.json
-npm install
-
-# Check TypeScript errors
-npx tsc --noEmit
+# Test backend endpoints
+curl -X GET http://localhost:5055/api/health
+curl -X GET http://localhost:5055/api/ledger
 ```
 
 ## 📈 Scaling Considerations
 
-### 1. Load Balancing
-```nginx
-# nginx.conf
+### Performance Optimization
+
+1. **Frontend Optimization**
+   - Code splitting and lazy loading
+   - Image optimization and CDN
+   - Caching strategies
+
+2. **Backend Optimization**
+   - Database indexing
+   - API response caching
+   - Connection pooling
+
+3. **Blockchain Optimization**
+   - Batch operations
+   - Gas optimization
+   - Event filtering
+
+### Horizontal Scaling
+
+```bash
+# Load balancer configuration (nginx)
 upstream hydrocred_backend {
     server 127.0.0.1:5055;
     server 127.0.0.1:5056;
@@ -424,102 +334,23 @@ upstream hydrocred_backend {
 
 server {
     listen 80;
+    server_name api.hydrocred.com;
+    
     location / {
         proxy_pass http://hydrocred_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
     }
 }
 ```
 
-### 2. Database Scaling
-```bash
-# MongoDB replica set
-mongo --eval "rs.initiate({
-  _id: 'hydrocred',
-  members: [
-    {_id: 0, host: 'localhost:27017'},
-    {_id: 1, host: 'localhost:27018'},
-    {_id: 2, host: 'localhost:27019'}
-  ]
-})"
-```
+## 📞 Support
 
-### 3. Caching
-```bash
-# Install Redis
-sudo apt-get install redis-server
-
-# Configure in backend
-npm install redis
-```
-
-## 🔄 CI/CD Pipeline
-
-### GitHub Actions Example
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy HydroCred
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-          
-      - name: Install dependencies
-        run: |
-          npm ci
-          cd backend && npm ci
-          cd ../frontend && npm ci
-          
-      - name: Build
-        run: |
-          cd backend && npm run build
-          cd ../frontend && npm run build
-          
-      - name: Deploy
-        run: |
-          # Add your deployment commands here
-```
-
-## 📞 Support & Maintenance
-
-### 1. Regular Maintenance
-```bash
-# Update dependencies
-npm update
-
-# Security audit
-npm audit
-npm audit fix
-
-# Database backup
-mongodump --db hydrocred --out ./backup
-```
-
-### 2. Monitoring Alerts
-```bash
-# Set up monitoring
-npm install node-cron
-
-# Schedule health checks
-cron.schedule('*/5 * * * *', async () => {
-  try {
-    await checkSystemHealth();
-  } catch (error) {
-    sendAlert('System health check failed');
-  }
-});
-```
+For deployment issues or questions:
+- **Documentation**: [README.md](README.md)
+- **Issues**: GitHub Issues
+- **Email**: support@hydrocred.com
 
 ---
 
-**Need help?** Check the [README.md](README.md) or create an issue in the repository.
+**🌱 Happy deploying! Building a sustainable future with blockchain technology.**

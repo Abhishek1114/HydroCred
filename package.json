@@ -1,29 +1,43 @@
 {
   "name": "hydrocred",
   "version": "1.0.0",
-  "private": true,
-  "description": "HydroCred - Blockchain-based Green Hydrogen Credit System",
-  "workspaces": [
-    "blockchain",
-    "backend",
-    "frontend"
-  ],
+  "description": "Blockchain-based Green Hydrogen Credit System",
   "scripts": {
-    "install:all": "npm -w blockchain i && npm -w backend i && npm -w frontend i",
-    "dev": "concurrently -k \"npm -w backend run dev\" \"npm -w frontend run dev\"",
-    "chain:compile": "npm -w blockchain run compile",
-    "chain:test": "npm -w blockchain run test",
-    "chain:deploy": "npm -w blockchain run deploy",
-    "update-contract-address": "node scripts/update-contract-address.js",
-    "test:connection": "node scripts/test-connection.js"
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../blockchain && npm install && cd ..",
+    "setup": "npm run install:all && cd blockchain && npx hardhat compile && node scripts/copy-abi.js && cd ..",
+    "start:backend": "cd backend && npm run dev",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:blockchain": "cd blockchain && npx hardhat node",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "build": "cd frontend && npm run build && cd ../backend && npm run build",
+    "test": "cd blockchain && npm test && cd ../backend && npm test",
+    "deploy": "cd blockchain && npx hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:local": "cd blockchain && npx hardhat run scripts/deploy.ts --network localhost"
   },
+  "keywords": [
+    "blockchain",
+    "green-hydrogen",
+    "carbon-credits",
+    "sustainability",
+    "ethereum",
+    "nft",
+    "environmental"
+  ],
+  "author": "HydroCred Team",
+  "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   },
-  "dependencies": {
-    "nodemon": "^3.1.10"
-  }
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/hydrocred.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/hydrocred/issues"
+  },
+  "homepage": "https://github.com/your-org/hydrocred#readme"
 }

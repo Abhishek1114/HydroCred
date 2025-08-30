@@ -84,7 +84,7 @@ router.post('/upload', upload.single('document'), (req: Request, res: Response) 
 router.get('/ledger', async (req: Request, res: Response) => {
   try {
     const fromBlockSchema = z.object({
-      fromBlock: z.string().optional().transform(val => val ? parseInt(val) : 0)
+      fromBlock: z.string().optional().transform(val => val ? parseInt(val) : undefined)
     });
     
     const { fromBlock } = fromBlockSchema.parse(req.query);
