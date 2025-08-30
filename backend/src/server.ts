@@ -2,11 +2,23 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { config, validateConfig } from './config/env';
+import { database } from './config/database';
 import apiRoutes from './routes/api';
 
 const app = express();
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: config.rateLimitWindow,
+  max: config.rateLimitMax,
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
 
 // Security middleware
 app.use(helmet());
@@ -69,16 +81,61 @@ app.use('*', (req, res) => {
 
 const PORT = config.port;
 
-app.listen(PORT, () => {
-  console.log(`🚀 HydroCred Backend running on port ${PORT}`);
-  console.log(`📡 Environment: ${config.nodeEnv}`);
-  
-  const configValid = validateConfig();
-  if (configValid) {
-    console.log('✅ Configuration validated');
-  } else {
-    console.log('⚠️  Configuration incomplete - some features may not work');
+async function startServer() {
+  try {
+    // Connect to MongoDB
+    await database.connect();
+    
+    // Validate configuration
+    const configValid = validateConfig();
+    if (!configValid) {
+      console.log('⚠️  Configuration incomplete - some features may not work');
+      if (config.nodeEnv === 'production') {
+        process.exit(1);
+      }
+    }
+
+    app.listen(PORT, () => {
+      console.log(`🚀 HydroCred Backend running on port ${PORT}`);
+      console.log(`📡 Environment: ${config.nodeEnv}`);
+      console.log(`🔗 Blockchain RPC: ${config.rpcUrl}`);
+      console.log(`📄 Contract: ${config.contractAddress}`);
+      console.log(`👑 Main Admin: ${config.mainAdminAddress}`);
+      
+      if (configValid) {
+        console.log('✅ Configuration validated');
+      }
+      
+      console.log(`🌐 API available at http://localhost:${PORT}`);
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
   }
-  
-  console.log(`🌐 API available at http://localhost:${PORT}`);
+}
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Received SIGINT. Shutting down gracefully...');
+  try {
+    await database.disconnect();
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error);
+    process.exit(1);
+  }
 });
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Received SIGTERM. Shutting down gracefully...');
+  try {
+    await database.disconnect();
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error);
+    process.exit(1);
+  }
+});
+
+startServer();
