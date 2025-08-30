@@ -5,7 +5,7 @@
   "scripts": {
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../blockchain && npm install && cd ..",
     "setup": "npm run install:all && cd blockchain && npx hardhat compile && node scripts/copy-abi.js && cd ..",
-    "start:backend": "cd backend && npm run dev",
+    "start:backend": "cd backend && npm run build && node dist/server.js",
     "start:frontend": "cd frontend && npm run dev",
     "start:blockchain": "cd blockchain && npx hardhat node",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",

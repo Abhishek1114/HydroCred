@@ -14,5 +14,15 @@ export default defineConfig({
     alias: {
       '@': '/src'
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          vendor: ['framer-motion', 'axios', 'clsx', 'lucide-react', '@tanstack/react-query']
+        }
+      }
+    }
   }
 })
