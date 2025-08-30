@@ -8,22 +8,24 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
   [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
-  [![Ethereum](https://img.shields.io/badge/Ethereum-Sepolia-purple.svg)](https://sepolia.etherscan.io/)
+  [![Ethereum](https://img.shields.io/badge/Ethereum-Testnet-purple.svg)](https://ethereum.org/)
+  [![MongoDB](https://img.shields.io/badge/MongoDB-6+-green.svg)](https://mongodb.com/)
 </div>
 
 ## 🌍 Project Overview
 
-HydroCred is a comprehensive blockchain-based system for tracking, certifying, and trading green hydrogen credits (H2 tokens). Each credit represents 1 kg of certified green hydrogen production, ensuring transparency and preventing fraud in the green energy ecosystem.
+HydroCred is a comprehensive blockchain-based system for tracking, certifying, and trading green hydrogen credits (H2 tokens). Each **H2 token represents 1 kg of certified green hydrogen production**, ensuring transparency and preventing fraud in the green energy ecosystem.
 
 ### 🎯 Key Features
 
-- **🔐 Wallet-based Authentication** - MetaMask/WalletConnect integration
-- **👥 Role-based Access Control** - Country/State/City Admins, Producers, Buyers, Auditors
-- **📋 Production Certification** - Request-based credit issuance with admin approval
-- **🏪 Marketplace Trading** - Peer-to-peer credit trading platform
-- **🔍 Fraud Prevention** - Blockchain verification and double-certification checks
-- **📊 Real-time Analytics** - Comprehensive dashboards for all user types
-- **🌱 Gasless Transactions** - ERC-721 tokens with optimized gas usage
+- **🔐 Wallet-based Authentication** - MetaMask integration with signature-based login
+- **👥 Hierarchical Role System** - Main Admin → Country Admin → State Admin → City Admin → Producers/Buyers
+- **📋 Production Certification** - Multi-step certification process with document upload
+- **🏪 Marketplace Trading** - Secure peer-to-peer credit trading with fraud prevention
+- **🔍 Advanced Security** - Role-based access control, anti-fraud measures, audit trails
+- **📊 Real-time Analytics** - Comprehensive dashboards with jurisdiction-based filtering
+- **🌱 ERC-721 H2 Tokens** - Each token = 1kg certified green hydrogen
+- **🗄️ MongoDB Integration** - Scalable database for user management and audit logs
 
 ## 🏗️ System Architecture
 

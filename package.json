@@ -3,16 +3,23 @@
   "version": "1.0.0",
   "description": "Blockchain-based Green Hydrogen Credit System",
   "scripts": {
+    "setup": "./scripts/setup.sh",
+    "dev": "./scripts/dev-start.sh",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../blockchain && npm install && cd ..",
-    "setup": "npm run install:all && cd blockchain && npx hardhat compile && node scripts/copy-abi.js && cd ..",
+    "start:blockchain": "cd blockchain && npx hardhat node",
     "start:backend": "cd backend && npm run dev",
     "start:frontend": "cd frontend && npm run dev",
-    "start:blockchain": "cd blockchain && npx hardhat node",
-    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start": "concurrently \"npm run start:blockchain\" \"npm run start:backend\" \"npm run start:frontend\"",
+    "compile": "cd blockchain && npx hardhat compile",
+    "deploy:local": "cd blockchain && npx hardhat run scripts/deploy.ts --network localhost",
+    "deploy:sepolia": "cd blockchain && npx hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:mumbai": "cd blockchain && npx hardhat run scripts/deploy.ts --network amoy",
     "build": "cd frontend && npm run build && cd ../backend && npm run build",
     "test": "cd blockchain && npm test && cd ../backend && npm test",
-    "deploy": "cd blockchain && npx hardhat run scripts/deploy.ts --network sepolia",
-    "deploy:local": "cd blockchain && npx hardhat run scripts/deploy.ts --network localhost"
+    "test:contracts": "cd blockchain && npx hardhat test",
+    "clean": "cd blockchain && npx hardhat clean && cd ../frontend && rm -rf dist && cd ../backend && rm -rf dist",
+    "lint": "cd frontend && npm run lint && cd ../backend && npm run lint",
+    "typecheck": "cd frontend && npx tsc --noEmit && cd ../backend && npx tsc --noEmit"
   },
   "keywords": [
     "blockchain",
