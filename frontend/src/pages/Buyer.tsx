@@ -29,7 +29,7 @@ const Buyer: React.FC = () => {
     
     // Set up transfer event listener
     const setupTransferListener = async () => {
-      await listenForTransfers((from, to, tokenId) => {
+      await listenForTransfers(() => {
         console.log('🔄 Transfer detected, refreshing credits...');
         if (walletAddress) {
           loadCredits(walletAddress);
@@ -397,6 +397,7 @@ const Buyer: React.FC = () => {
           )}
 
           {activeTab === 'credits' && (
+            <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -526,6 +527,8 @@ const Buyer: React.FC = () => {
               </div>
             </motion.div>
           </div>
+          </>
+          )}
 
           {/* Retirement Confirmation Modal */}
           {confirmRetirement && (

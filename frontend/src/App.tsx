@@ -16,7 +16,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import './lib/test-env.js';
 
 const AppContent: React.FC = () => {
-  const { user, isLoading, isRegistered } = useUser();
+  const { isLoading, isRegistered } = useUser();
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isCheckingWallet, setIsCheckingWallet] = useState(true);
 
